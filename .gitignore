@@ -11,3 +11,6 @@ wheels/
 
 # environement file
 .env
+
+# langgraph studio 
+*.langgraph_api
