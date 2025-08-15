@@ -1,0 +1,5 @@
+{
+    "dependencies": ["../"],
+    "graphs": {"graph": "../simple_graph.py:graph"},
+    "env": "../.env"
+}
