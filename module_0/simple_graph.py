@@ -77,6 +77,8 @@ graph = builder.compile()
 #### which sets the initial value for our graph state dict
 #### when invoke is called, the graph starts execution from the `START` node.
 #### The execution continues until it reaches the `END` node.
+## NOTE: `invoke` runs the graph synchrounously meaning this waits for each step to complete 
+### before moving to next. it returns the final state of the graph after all nodes have executed
 
 # final_state = graph.invoke({"graph_state": "Hi, this is amit"})
 # print(final_state)
