@@ -1,6 +1,8 @@
 {
     "dependencies": ["../"],
     "graphs": {"chain": "../chain.py:graph",
-                "router": "../router.py:graph"},
+                "router": "../router.py:graph",
+            "agent": ",../agent.py:graph",
+        "agent_with_memory": "../agent_with_memory.py:react_graph_memory"},
     "env": "../.env"
 }
