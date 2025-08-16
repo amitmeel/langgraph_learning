@@ -1,5 +1,6 @@
 {
     "dependencies": ["../"],
-    "graphs": {"chain": "../chain.py:graph"},
+    "graphs": {"chain": "../chain.py:graph",
+                "router": "../router.py:graph"},
     "env": "../.env"
 }
