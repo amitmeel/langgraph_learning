@@ -132,3 +132,18 @@ builder.add_node("chat_model", chat_model_node)
 builder.add_edge(START, "chat_model")
 builder.add_edge("chat_model", END)
 graph = builder.compile()
+
+messages.append(output['messages'][-1])
+messages.append(HumanMessage(f"Tell me where Orcas live!", name="Lance"))
+
+# Example of trimming messages
+trim_messages(
+            messages,
+            max_tokens=100,
+            strategy="last",
+            token_counter=ChatGoogleGenerativeAI(model="gemini-2.5-flash"),
+            allow_partial=False
+        )
+
+# Invoke, using message trimming in the chat_model_node 
+messages_out_trim = graph.invoke({'messages': messages})
