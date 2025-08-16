@@ -47,7 +47,7 @@ from langgraph.graph.message import add_messages
 class MessagesState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
 
-    from langgraph.graph import MessagesState
+from langgraph.graph import MessagesState
 
 # below is exactly similar to above Messagestate class
 class MessagesState(MessagesState):
