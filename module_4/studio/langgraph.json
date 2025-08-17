@@ -1,0 +1,6 @@
+{
+    "dependencies": ["../"],
+    "graphs": {
+        "parellel_execution": "../parallel_execution_of_nodes.py:graph"},
+    "env": "../.env"
+}
