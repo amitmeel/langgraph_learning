@@ -247,7 +247,7 @@ class InterviewState(MessagesState):
     section: list # final key we duplicate in outer state for Send() API
 
 # build the graph node to generate the question related to topic
-def generate_quetion(state: InterviewState):
+def generate_question(state: InterviewState):
     """Node to generate a question by analyst"""
     # get state
     analyst = state["analyst"]
@@ -279,15 +279,14 @@ def search_web(state: InterviewState):
     # Search query
     structured_llm = model.with_structured_output(SearchQuery)
     search_query = structured_llm.invoke([search_instructions] + state['messages'])
-    
+    print(search_query.search_query)
     # Search
-    search_docs = tavily_search.invoke(search_query.search_query)
-
+    search_docs = tavily_search.invoke({"query":search_query.search_query})
      # Format
     formatted_search_docs = "\n\n---\n\n".join(
         [
             f'<Document href="{doc["url"]}"/>\n{doc["content"]}\n</Document>'
-            for doc in search_docs
+            for doc in search_docs["results"]
         ]
     )
 
@@ -385,3 +384,41 @@ def write_section(state: InterviewState):
     # Append it to state
     return {"sections": [section.content]}
 
+# Add nodes and edges 
+interview_builder = StateGraph(InterviewState)
+interview_builder.add_node("ask_question", generate_question)
+interview_builder.add_node("search_web", search_web)
+interview_builder.add_node("search_wikipedia", search_wikipedia)
+interview_builder.add_node("answer_question", generate_answer)
+interview_builder.add_node("save_interview", save_interview)
+interview_builder.add_node("write_section", write_section)
+
+# Flow
+interview_builder.add_edge(START, "ask_question")
+interview_builder.add_edge("ask_question", "search_web")
+interview_builder.add_edge("ask_question", "search_wikipedia")
+interview_builder.add_edge("search_web", "answer_question")
+interview_builder.add_edge("search_wikipedia", "answer_question")
+interview_builder.add_conditional_edges("answer_question", route_messages,['ask_question','save_interview'])
+interview_builder.add_edge("save_interview", "write_section")
+interview_builder.add_edge("write_section", END)
+
+# Interview 
+memory = MemorySaver()
+interview_graph = interview_builder.compile(checkpointer=memory).with_config(run_name="Conduct Interviews")
+
+# example to use
+# create one analyst
+analyst = Analyst(affiliation='Tech Innovators Inc.', 
+    name='Dr. Emily Carter',
+    role='Technology Analyst',
+    description=('Dr. Carter focuses on evaluating emerging technologies and their potential '
+    'impact on various industries. She is particularly interested in how LangGraph can streamline '
+    'processes and improve efficiency in tech-driven companies.')
+)
+
+topic = "The benefits of adopting LangGraph as an agent framework"
+messages = [HumanMessage(f"So you said you were writing an article on {topic}?")]
+thread = {"configurable": {"thread_id": "3"}}
+interview = interview_graph.invoke({"analyst": analyst, "messages": messages, "max_num_turns": 2}, thread)
+print(interview)
