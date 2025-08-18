@@ -1,6 +1,8 @@
 {
     "dependencies": ["../"],
     "graphs": {
-        "parellel_execution": "../parallel_execution_of_nodes.py:graph"},
+        "parellel_execution": "../parallel_execution_of_nodes.py:graph",
+        "map_reduce": "../map_reduce.py:app"
+    },
     "env": "../.env"
 }
