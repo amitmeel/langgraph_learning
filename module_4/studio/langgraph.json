@@ -2,7 +2,9 @@
     "dependencies": ["../"],
     "graphs": {
         "parellel_execution": "../parallel_execution_of_nodes.py:graph",
-        "map_reduce": "../map_reduce.py:app"
+        "map_reduce": "../map_reduce.py:app",
+        "assistant": "../assistant.py:graph"
+
     },
     "env": "../.env"
 }
