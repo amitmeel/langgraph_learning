@@ -8,6 +8,7 @@ from typing import Any, TypedDict, Annotated, List
 
 from langchain_core.messages import AIMessage, HumanMessage,SystemMessage, RemoveMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_core.messages import get_buffer_string
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import MessagesState
@@ -15,6 +16,10 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import tools_condition, ToolNode
 from langgraph.types import Send, Interrupt, Command
 from pydantic import BaseModel, Field
+from langchain_tavily import TavilySearch
+from langchain_community.document_loaders import WikipediaLoader
+
+
 # for tracing purpose
 import mlflow
 
@@ -35,6 +40,8 @@ _set_env("TAVILY_API_KEY")
 
 # LLM
 model = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+tavily_search  = TavilySearch(max_results=3)
+
 
 def read_prompt_file(filename: str) -> str:
     """
@@ -239,9 +246,6 @@ class InterviewState(MessagesState):
     interview: str # interview transcript between analyst and expert
     section: list # final key we duplicate in outer state for Send() API
 
-class SearchQuery(BaseModel):
-    search_query: str = Field(None, description="Search Query for retrieval.")
-
 # build the graph node to generate the question related to topic
 def generate_quetion(state: InterviewState):
     """Node to generate a question by analyst"""
@@ -258,5 +262,126 @@ def generate_quetion(state: InterviewState):
     # write question to state
     return {"messages": [question]}
 
+###########################################################
+# Generate Answer: Parallelization
+###########################################################
+# The expert will gather information from multiple sources in parallel to answer questions.
+# example: web, wikipedia etc
 
+class SearchQuery(BaseModel):
+    search_query: str = Field(None, description="Search Query for retrieval.")
+
+# node to search the relevant doc from web
+def search_web(state: InterviewState):
+    """ Retrieve docs from web search """
+
+    search_instructions = read_prompt_file("search_instructions")
+    # Search query
+    structured_llm = model.with_structured_output(SearchQuery)
+    search_query = structured_llm.invoke([search_instructions] + state['messages'])
+    
+    # Search
+    search_docs = tavily_search.invoke(search_query.search_query)
+
+     # Format
+    formatted_search_docs = "\n\n---\n\n".join(
+        [
+            f'<Document href="{doc["url"]}"/>\n{doc["content"]}\n</Document>'
+            for doc in search_docs
+        ]
+    )
+
+    return {"context": [formatted_search_docs]} 
+
+# node to search the relevant document from wikipedia
+def search_wikipedia(state: InterviewState):
+    """ Retrieve docs from wikipedia """
+
+    search_instructions = read_prompt_file("search_instructions")
+    # Search query
+    structured_llm = model.with_structured_output(SearchQuery)
+    search_query = structured_llm.invoke([search_instructions] + state['messages'])
+    
+    # Search
+    search_docs = WikipediaLoader(query=search_query.search_query, 
+                                  load_max_docs=2).load()
+
+     # Format
+    formatted_search_docs = "\n\n---\n\n".join(
+        [
+            f'<Document source="{doc.metadata["source"]}" page="{doc.metadata.get("page", "")}"/>\n{doc.page_content}\n</Document>'
+            for doc in search_docs
+        ]
+    )
+
+    return {"context": [formatted_search_docs]} 
+
+# node to generate the answer
+def generate_answer(state: InterviewState):
+    """ Node to answer a question """
+
+    # Get state
+    analyst = state["analyst"]
+    messages = state["messages"]
+    context = state["context"]
+
+    answer_instructions = read_prompt_file("answer_instructions")
+    # Answer question
+    system_message = answer_instructions.format(goals=analyst.persona, context=context)
+    answer = model.invoke([SystemMessage(content=system_message)]+messages)
+            
+    # Name the message as coming from the expert
+    answer.name = "expert"
+    
+    # Append it to state
+    return {"messages": [answer]}
+
+def save_interview(state: InterviewState):
+    """ Save interviews """
+    # Get messages
+    messages = state["messages"]
+    # Convert interview to a string
+    interview = get_buffer_string(messages)
+    # Save to interviews key
+    return {"interview": interview}
+
+def route_messages(state: InterviewState, name: str = "expert"):
+    """ Route between question and answer """
+    # Get messages
+    messages = state["messages"]
+    max_num_turns = state.get('max_num_turns',2)
+
+    # Check the number of expert answers 
+    num_responses = len(
+        [m for m in messages if isinstance(m, AIMessage) and m.name == name]
+    )
+
+    # End if expert has answered more than the max turns
+    if num_responses >= max_num_turns:
+        return 'save_interview'
+
+    # This router is run after each question - answer pair 
+    # Get the last question asked to check if it signals the end of discussion
+    last_question = messages[-2]
+    
+    if "Thank you so much for your help" in last_question.content:
+        return 'save_interview'
+    return "ask_question"
+
+
+def write_section(state: InterviewState):
+    """ Node to answer a question """
+
+    # Get state
+    interview = state["interview"]
+    context = state["context"]
+    analyst = state["analyst"]
+   
+    section_writer_instructions = read_prompt_file("section_writer_instructions")
+    # Write section using either the gathered source docs from interview (context) or the interview itself (interview)
+    system_message = section_writer_instructions.format(focus=analyst.description)
+    section = model.invoke([SystemMessage(content=system_message)]+[HumanMessage(content=f"Use this source to write your section: {context}")]) 
+                
+    # Append it to state
+    return {"sections": [section.content]}
 
