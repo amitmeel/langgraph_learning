@@ -4,7 +4,7 @@ import os
 import operator
 from dotenv import load_dotenv
 from pathlib import Path
-from typing import Any, TypedDict, Annotated
+from typing import Any, TypedDict, Annotated, List
 
 from langchain_core.messages import AIMessage, HumanMessage,SystemMessage, RemoveMessage
 from langchain_core.runnables import RunnableConfig
@@ -14,7 +14,7 @@ from langgraph.graph import MessagesState
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import tools_condition, ToolNode
 from langgraph.types import Send, Interrupt, Command
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 # for tracing purpose
 import mlflow
 
@@ -85,13 +85,10 @@ def read_prompt_file(filename: str) -> str:
 # The gathered insights from each interview will be synthesized into a final report.
 # We'll use customizable prompts for the report, allowing for a flexible output format.
 
-from typing import List
-from typing_extensions import TypedDict
-from pydantic import BaseModel, Field
 
-
+####################################
 # Generate Analysts: Human-In-The-Loop
-
+###################################
 class Analyst(BaseModel):
     affiliation: str = Field(
         description="Primary affiliation of the analyst.",
@@ -162,72 +159,104 @@ def should_continue(state: GenerateAnalystsState):
 # # Add nodes and edges
 # todo: instead of adding dummy humna feedback node, you can also use interrupt and command 
 
-builder = StateGraph(GenerateAnalystsState)
-builder.add_node("create_analysts", create_analysts)
-builder.add_node("human_feedback", human_feedback)
-builder.add_edge(START, "create_analysts")
-builder.add_edge("create_analysts", "human_feedback")
-builder.add_conditional_edges("human_feedback", should_continue, ["create_analysts", END])
+# builder = StateGraph(GenerateAnalystsState)
+# builder.add_node("create_analysts", create_analysts)
+# builder.add_node("human_feedback", human_feedback)
+# builder.add_edge(START, "create_analysts")
+# builder.add_edge("create_analysts", "human_feedback")
+# builder.add_conditional_edges("human_feedback", should_continue, ["create_analysts", END])
 
-# Compile
-memory = MemorySaver()
-graph = builder.compile(interrupt_before=['human_feedback'], checkpointer=memory)
+# # Compile
+# memory = MemorySaver()
+# graph = builder.compile(interrupt_before=['human_feedback'], checkpointer=memory)
 
-# Input
-max_analysts = 3 
-topic = "The benefits of adopting LangGraph as an agent framework"
-thread = {"configurable": {"thread_id": "1"}}
+# # Input
+# max_analysts = 3 
+# topic = "The benefits of adopting LangGraph as an agent framework"
+# thread = {"configurable": {"thread_id": "1"}}
 
-# Run the graph until the first interruption
-for event in graph.stream({"topic":topic,"max_analysts":max_analysts,}, thread, stream_mode="values"):
-    # Review
-    analysts = event.get('analysts', '')
-    if analysts:
-        for analyst in analysts:
-            print(f"Name: {analyst.name}")
-            print(f"Affiliation: {analyst.affiliation}")
-            print(f"Role: {analyst.role}")
-            print(f"Description: {analyst.description}")
-            print("-" * 50) 
+# # Run the graph until the first interruption
+# for event in graph.stream({"topic":topic,"max_analysts":max_analysts,}, thread, stream_mode="values"):
+#     # Review
+#     analysts = event.get('analysts', '')
+#     if analysts:
+#         for analyst in analysts:
+#             print(f"Name: {analyst.name}")
+#             print(f"Affiliation: {analyst.affiliation}")
+#             print(f"Role: {analyst.role}")
+#             print(f"Description: {analyst.description}")
+#             print("-" * 50) 
 
-# Get state and look at next node
-state = graph.get_state(thread)
-print(f"state after analyst creation: {state.next}")
-# We now update the state as if we are the human_feedback node
-graph.update_state(thread, {"human_analyst_feedback": 
-                            "Add in someone from a startup to add an entrepreneur perspective"}, as_node="human_feedback")
+# # Get state and look at next node
+# state = graph.get_state(thread)
+# print(f"state after analyst creation: {state.next}")
+# # We now update the state as if we are the human_feedback node
+# graph.update_state(thread, {"human_analyst_feedback": 
+#                             "Add in someone from a startup to add an entrepreneur perspective"}, as_node="human_feedback")
 
 
-# Continue the graph execution
-for event in graph.stream(None, thread, stream_mode="values"):
-    # Review
-    analysts = event.get('analysts', '')
-    if analysts:
-        for analyst in analysts:
-            print(f"Name: {analyst.name}")
-            print(f"Affiliation: {analyst.affiliation}")
-            print(f"Role: {analyst.role}")
-            print(f"Description: {analyst.description}")
-            print("-" * 50) 
+# # Continue the graph execution
+# for event in graph.stream(None, thread, stream_mode="values"):
+#     # Review
+#     analysts = event.get('analysts', '')
+#     if analysts:
+#         for analyst in analysts:
+#             print(f"Name: {analyst.name}")
+#             print(f"Affiliation: {analyst.affiliation}")
+#             print(f"Role: {analyst.role}")
+#             print(f"Description: {analyst.description}")
+#             print("-" * 50) 
 
-# If we are satisfied, then we simply supply no feedback
-further_feedack = None
-graph.update_state(thread, {"human_analyst_feedback": 
-                            further_feedack}, as_node="human_feedback")
-# Continue the graph execution to end
-for event in graph.stream(None, thread, stream_mode="updates"):
-    print("--Node--")
-    node_name = next(iter(event.keys()))
-    print(node_name)
+# # If we are satisfied, then we simply supply no feedback
+# further_feedack = None
+# graph.update_state(thread, {"human_analyst_feedback": 
+#                             further_feedack}, as_node="human_feedback")
+# # Continue the graph execution to end
+# for event in graph.stream(None, thread, stream_mode="updates"):
+#     print("--Node--")
+#     node_name = next(iter(event.keys()))
+#     print(node_name)
 
-final_state = graph.get_state(thread)
-analysts = final_state.values.get('analysts')
-print(final_state.next)
-for analyst in analysts:
-    print(f"Name: {analyst.name}")
-    print(f"Affiliation: {analyst.affiliation}")
-    print(f"Role: {analyst.role}")
-    print(f"Description: {analyst.description}")
-    print("-" * 50)
+# final_state = graph.get_state(thread)
+# analysts = final_state.values.get('analysts')
+# print(final_state.next)
+# for analyst in analysts:
+#     print(f"Name: {analyst.name}")
+#     print(f"Affiliation: {analyst.affiliation}")
+#     print(f"Role: {analyst.role}")
+#     print(f"Description: {analyst.description}")
+#     print("-" * 50)
+
+
+####################################################
+# Conduct Interview
+# Generate Question
+###################################################
+class InterviewState(MessagesState):
+    max_num_turns: int # max numer of turns for conversation
+    context: Annotated[list, operator.add] # source documents
+    analyst: Analyst # Analyst who is going to ask question to expert
+    interview: str # interview transcript between analyst and expert
+    section: list # final key we duplicate in outer state for Send() API
+
+class SearchQuery(BaseModel):
+    search_query: str = Field(None, description="Search Query for retrieval.")
+
+# build the graph node to generate the question related to topic
+def generate_quetion(state: InterviewState):
+    """Node to generate a question by analyst"""
+    # get state
+    analyst = state["analyst"]
+    messages = state["messages"]
+
+    # generate question
+    system_message = read_prompt_file("question_instructions").format(
+        goals=analyst.persona
+    )
+    question = model.invoke([SystemMessage(content=system_message)] + messages)
+
+    # write question to state
+    return {"messages": [question]}
+
 
 
