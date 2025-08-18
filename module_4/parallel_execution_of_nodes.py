@@ -194,7 +194,7 @@ def search_web(state):
     formatted_search_docs = "\n\n---\n\n".join(
         [
             f'<Document href="{doc["url"]}">\n{doc["content"]}\n</Document>'
-            for doc in search_docs
+            for doc in search_docs["results"]
         ]
     )
 
@@ -253,6 +253,6 @@ builder.add_edge("search_web", "generate_answer")
 builder.add_edge("generate_answer", END)
 graph = builder.compile()
 
-# result = graph.invoke({"question": "How were IBM's Q2 2025 earnings"})
-# result['answer'].content
+result = graph.invoke({"question": "How were IBM's Q2 2025 earnings"})
+result['answer'].content
 
