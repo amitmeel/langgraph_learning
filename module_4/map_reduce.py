@@ -108,5 +108,5 @@ app=graph.compile()
 
 # Call the graph: here we call it to generate a list of jokes
 # if you are using this in langgraph studio , comment the below code lines.
-for s in app.stream({"topic": "animals"}):
-    print(s)
+# for s in app.stream({"topic": "animals"}):
+#     print(s)

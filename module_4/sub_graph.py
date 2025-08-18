@@ -118,5 +118,5 @@ question_answer_feedback = Log(
     feedback="The retrieved documents discuss vector stores in general, but not Chroma specifically",
 )
 
-raw_logs = [question_answer,question_answer_feedback]
-graph.invoke({"raw_logs": raw_logs})
+# raw_logs = [question_answer,question_answer_feedback]
+# graph.invoke({"raw_logs": raw_logs})
