@@ -403,22 +403,123 @@ interview_builder.add_conditional_edges("answer_question", route_messages,['ask_
 interview_builder.add_edge("save_interview", "write_section")
 interview_builder.add_edge("write_section", END)
 
-# Interview 
-memory = MemorySaver()
-interview_graph = interview_builder.compile(checkpointer=memory).with_config(run_name="Conduct Interviews")
+# # Interview 
+# memory = MemorySaver()
+# interview_graph = interview_builder.compile(checkpointer=memory).with_config(run_name="Conduct Interviews")
 
-# example to use
-# create one analyst
-analyst = Analyst(affiliation='Tech Innovators Inc.', 
-    name='Dr. Emily Carter',
-    role='Technology Analyst',
-    description=('Dr. Carter focuses on evaluating emerging technologies and their potential '
-    'impact on various industries. She is particularly interested in how LangGraph can streamline '
-    'processes and improve efficiency in tech-driven companies.')
-)
+# # example to use
+# # create one analyst
+# analyst = Analyst(affiliation='Tech Innovators Inc.', 
+#     name='Dr. Emily Carter',
+#     role='Technology Analyst',
+#     description=('Dr. Carter focuses on evaluating emerging technologies and their potential '
+#     'impact on various industries. She is particularly interested in how LangGraph can streamline '
+#     'processes and improve efficiency in tech-driven companies.')
+# )
 
-topic = "The benefits of adopting LangGraph as an agent framework"
-messages = [HumanMessage(f"So you said you were writing an article on {topic}?")]
-thread = {"configurable": {"thread_id": "3"}}
-interview = interview_graph.invoke({"analyst": analyst, "messages": messages, "max_num_turns": 2}, thread)
-print(interview)
+# topic = "The benefits of adopting LangGraph as an agent framework"
+# messages = [HumanMessage(f"So you said you were writing an article on {topic}?")]
+# thread = {"configurable": {"thread_id": "3"}}
+# interview = interview_graph.invoke({"analyst": analyst, "messages": messages, "max_num_turns": 2}, thread)
+# print(interview)
+
+
+########################################################
+# Parallelze interviews: Map-Reduce
+## We parallelize the interviews via the Send() API, a map step.
+## We combine them into the report body in a reduce step.
+
+# Finalize
+## We add a final step to write an intro and conclusion to the final report.
+
+class ResearchGraphState(TypedDict):
+    topic: str # Research topic
+    max_analysts: int # Number of analysts
+    human_analyst_feedback: str # Human feedback
+    analysts: List[Analyst] # Analyst asking questions
+    sections: Annotated[list, operator.add] # Send() API key
+    introduction: str # Introduction for the final report
+    content: str # Content for the final report
+    conclusion: str # Conclusion for the final report
+    final_report: str # Final report
+
+def initiate_all_interviews(state: ResearchGraphState):
+    """ This is the "map" step where we run each interview sub-graph using Send API """    
+
+    # Check if human feedback
+    human_analyst_feedback=state.get('human_analyst_feedback')
+    if human_analyst_feedback:
+        # Return to create_analysts
+        return "create_analysts"
+
+    # Otherwise kick off interviews in parallel via Send() API
+    else:
+        topic = state["topic"]
+        return [Send("conduct_interview", {"analyst": analyst,
+                                           "messages": [HumanMessage(
+                                               content=f"So you said you were writing an article on {topic}?"
+                                           )
+                                                       ]}) for analyst in state["analysts"]]
+
+def write_report(state: ResearchGraphState):
+    # Full set of sections
+    sections = state["sections"]
+    topic = state["topic"]
+
+    # Concat all sections together
+    formatted_str_sections = "\n\n".join([f"{section}" for section in sections])
+    
+    report_writer_instructions = read_prompt_file("report_writer_instructions")
+    # Summarize the sections into a final report
+    system_message = report_writer_instructions.format(topic=topic, context=formatted_str_sections)    
+    report = model.invoke([SystemMessage(content=system_message)]+[HumanMessage(content=f"Write a report based upon these memos.")]) 
+    return {"content": report.content}
+
+def write_introduction(state: ResearchGraphState):
+    # Full set of sections
+    sections = state["sections"]
+    topic = state["topic"]
+
+    # Concat all sections together
+    formatted_str_sections = "\n\n".join([f"{section}" for section in sections])
+    
+    # Summarize the sections into a final report
+    intro_conclusion_instructions = read_prompt_file("intro_conclusion_instructions")
+    instructions = intro_conclusion_instructions.format(topic=topic, formatted_str_sections=formatted_str_sections)    
+    intro = model.invoke([instructions]+[HumanMessage(content=f"Write the report introduction")]) 
+    return {"introduction": intro.content}
+
+
+def write_conclusion(state: ResearchGraphState):
+    # Full set of sections
+    sections = state["sections"]
+    topic = state["topic"]
+
+    # Concat all sections together
+    formatted_str_sections = "\n\n".join([f"{section}" for section in sections])
+    
+    # Summarize the sections into a final report
+    intro_conclusion_instructions = read_prompt_file("intro_conclusion_instructions")
+    instructions = intro_conclusion_instructions.format(topic=topic, formatted_str_sections=formatted_str_sections)    
+    conclusion = model.invoke([instructions]+[HumanMessage(content=f"Write the report conclusion")]) 
+    return {"conclusion": conclusion.content}
+
+def finalize_report(state: ResearchGraphState):
+    """ The is the "reduce" step where we gather all the sections, combine them, and reflect on them to write the intro/conclusion """
+    # Save full final report
+    content = state["content"]
+    if content.startswith("## Insights"):
+        content = content.strip("## Insights")
+    if "## Sources" in content:
+        try:
+            content, sources = content.split("\n## Sources\n")
+        except:
+            sources = None
+    else:
+        sources = None
+
+    final_report = state["introduction"] + "\n\n---\n\n" + content + "\n\n---\n\n" + state["conclusion"]
+    if sources is not None:
+        final_report += "\n\n## Sources\n" + sources
+    return {"final_report": final_report}
+
