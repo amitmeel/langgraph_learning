@@ -20,6 +20,14 @@ from assistant import (
     model, read_prompt_file
 )
 
+# POST /research/start → Generate analysts
+# GET /research/{session_id}/analysts → Review analysts
+# PUT /research/{session_id}/feedback → Optional feedback
+# POST /research/{session_id}/continue → Start interviews (returns immediately)
+# GET /research/{session_id}/progress → Check real-time progress
+# GET /research/{session_id}/report → Get final report (when completed)
+
+
 # Create the analyst generation graph
 def create_analyst_graph():
     builder = StateGraph(GenerateAnalystsState)
