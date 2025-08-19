@@ -228,7 +228,7 @@ uv add "requests>=2.28.0"
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
 | `TAVILY_API_KEY` | Tavily API key | Yes | `sk-...` |
-| `GOOGLE_API_KEY` | Google API key | Optional | `sk-ant-...` |
+| `GOOGLE_API_KEY` | Google API key | Yes | `sk-ant-...` |
 | `LANGCHAIN_TRACING_V2` | Enable LangSmith tracing | Optional | `true` |
 
 ### Project Configuration
