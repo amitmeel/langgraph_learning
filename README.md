@@ -207,17 +207,19 @@ uv add "requests>=2.28.0"
 - **Files**: State management patterns and flow control
 - **Learning Outcomes**: Managing complex application state
 
+### Module 3: Streaming, Breakpoints and Human-in-loop
+- **Purpose**: How to stream, how to ad breakpoints using human-in-loop in a graph
+- **Key Concepts**: streaming, breakpoints, dynamic breakpoints and human-in-loop
+- **Files**: streaming and human-in-loop examples and best practices
+- **Learning Outcomes**: How to stream the graph states and how to add human-in-loop in complex workflow
+
+
 ### Module 4: Multi-Agent Systems
 - **Purpose**: Building systems with multiple AI agents
 - **Key Concepts**: Agent coordination, message passing, collaboration
 - **Files**: Multi-agent examples and coordination patterns
 - **Learning Outcomes**: Creating collaborative AI systems
 
-### Module 3: Streaming, Breakpoints and Human-in-loop
-- **Purpose**: How to stream, how to ad breakpoints using human-in-loop in a graph
-- **Key Concepts**: streaming, breakpoints, dynamic breakpoints and human-in-loop
-- **Files**: streaming and human-in-loop examples and best practices
-- **Learning Outcomes**: How to stream the graph states and how to add human-in-loop in complex workflow
 
 ## ⚙️ Configuration
 
